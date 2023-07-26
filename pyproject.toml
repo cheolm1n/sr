@@ -2,11 +2,12 @@
 name = "sr"
 version = "0.1.0"
 description = ""
-authors = ["iron.min(주철민)/kakaogames <iron.min@kakaocorp.com>"]
+authors = ["cheolm1n(주철민) <choelm1n@naver.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.9"
+tiktoken = "^0.4.0"
 
 
 [build-system]
