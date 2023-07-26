@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "sr"
+version = "0.1.0"
+description = ""
+authors = ["iron.min(주철민)/kakaogames <iron.min@kakaocorp.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
