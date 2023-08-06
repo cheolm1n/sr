@@ -1,9 +1,15 @@
-import argparse
+import json
 import math
+import os
 from concurrent.futures import ThreadPoolExecutor
 
 import openai
 import tiktoken
+import typer
+from rich import print
+from rich.console import Console
+from rich.table import Table
+from rich.text import Text
 from tqdm import tqdm
 
 BUFFER = 50
@@ -29,12 +35,6 @@ MAX_TOKENS = {
 }
 
 
-# 파싱된 인자 출력
-def print_args(params):
-    for param in params.inputs:
-        print(param)
-
-
 def count_tokens(string: str, encoding_name: str) -> int:
     encoding = tiktoken.encoding_for_model(encoding_name)
     num_tokens = len(encoding.encode(string))
@@ -53,7 +53,7 @@ def get_file_info(string: str, encoding_name: str) -> dict:
 
         average = math.ceil(cnt_tokens / total_line)
 
-        return {"count_tokens": count_tokens, "average": average, "total_line": total_line}
+        return {"count_tokens": cnt_tokens, "average": average, "total_line": total_line}
 
 
 def ask_openai(model_name, system_message, user_message):
@@ -82,8 +82,8 @@ def ask_openai_parallel(model_name, system_user_pairs, output_file):
                 file.write(result + '\n')
 
 
-def create_pairs_from_file(file_name, prompt, lines_per_pair):
-    with open(file_name, 'r') as file:
+def create_pairs_from_file(file, prompt, lines_per_pair):
+    with open(file, 'r') as file:
         content = file.read().splitlines()
 
     pairs = [(prompt, ' '.join(content[i:i + lines_per_pair])) for i in range(0, len(content), lines_per_pair)]
@@ -91,34 +91,55 @@ def create_pairs_from_file(file_name, prompt, lines_per_pair):
     return pairs
 
 
-parser = argparse.ArgumentParser(description="This is a simple argument parser")
+console = Console()
 
-# 인자 추가
-parser.add_argument("inputs", type=str, nargs='+', help="Input to be printed out")
 
-# 인자 파싱
-args = parser.parse_args()
-openai.api_key = args.inputs[2]
+def main():
+    prompt = typer.prompt("Enter prompt")
+    file = typer.prompt("Enter the target file name")
 
-if __name__ == '__main__':
-    print_args(args)
+    if os.path.exists('config.json'):
+        with open('config.json') as json_file:
+            data = json.load(json_file)
+            default_api_key = data['api_key']
+            default_model_name = data.get('model_name', "gpt-3.5-turbo-16k-0613")
+    else:
+        default_api_key = None
+        default_model_name = "gpt-3.5-turbo-16k-0613"
 
-    prompt_token = count_tokens(args.inputs[0], args.inputs[1])
-    print("# prompt token : " + str(prompt_token))
+    api_key = typer.prompt("Enter your api key for OpenAI", default=default_api_key)
+    model_name = typer.prompt("Enter the model name", default=default_model_name)
 
-    file_info = get_file_info(args.inputs[3], args.inputs[1])
+    with open('config.json', 'w') as outfile:
+        json.dump({'api_key': api_key, 'model_name': model_name}, outfile)
 
-    print("# file token : " + str(file_info))
+    openai.api_key = api_key
 
-    available_token = math.floor((MAX_TOKENS[args.inputs[1]] - prompt_token) / 2 - BUFFER)
-    print("# available token : " + str(available_token))
-
+    prompt_token = count_tokens(prompt, model_name)
+    file_info = get_file_info(file, model_name)
+    available_token = math.floor((MAX_TOKENS[model_name] - prompt_token) / 2 - BUFFER)
     line_per_request = math.floor(available_token / file_info.get("average"))
-    print("# line per request : " + str(line_per_request))
-
     total_request = math.ceil(file_info.get("total_line") / line_per_request)
-    print("# total request : " + str(total_request))
 
-    pairs = create_pairs_from_file(args.inputs[3], args.inputs[0], line_per_request)
+    print("\n")
+    print("Here's the result of the calculation.")
+    table = Table("Name", "Value")
+    table.add_row("prompt token", str(prompt_token))
+    table.add_row("file token", str(file_info["count_tokens"]))
+    table.add_row("total line", str(file_info["total_line"]))
+    table.add_row("average", str(file_info["average"]))
+    table.add_row("available token", str(available_token))
+    table.add_row("line per request", str(line_per_request))
+    table.add_row(Text("total request", style="red"), str(total_request))
+    console.print(table)
+    print("\n")
 
-    ask_openai_parallel(args.inputs[1], pairs, "result_" + args.inputs[3])
+    pairs = create_pairs_from_file(file, prompt, line_per_request)
+
+    typer.confirm("Do you want to run?", abort=True)
+
+    ask_openai_parallel(model_name, pairs, "result_" + file)
+
+
+if __name__ == "__main__":
+    typer.run(main)
