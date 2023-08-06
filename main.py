@@ -6,8 +6,6 @@ import openai
 import tiktoken
 from tqdm import tqdm
 
-# MODEL_NAME = "gpt-3.5-turbo-16k-0613"
-# MAX_TOKEN = 4096 * 4
 BUFFER = 50
 MAX_TOKENS = {
     "gpt-4": 8192,
