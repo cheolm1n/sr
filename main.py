@@ -72,7 +72,7 @@ def ask_openai_parallel(model_name, system_user_pairs, output_file):
         futures = {executor.submit(ask_openai, model_name, pair[0], pair[1]): i for i, pair in enumerate(system_user_pairs)}
         results = [None] * len(futures)
 
-        with tqdm(total=len(futures), desc="Processing pairs", ncols=70) as pbar:
+        with tqdm(total=len(futures), desc="Processing... ", ncols=70) as pbar:
             for future in futures:
                 results[futures[future]] = future.result()
                 pbar.update()
@@ -121,7 +121,6 @@ def main():
     line_per_request = math.floor(available_token / file_info.get("average"))
     total_request = math.ceil(file_info.get("total_line") / line_per_request)
 
-    print("\n")
     print("Here's the result of the calculation.")
     table = Table("Name", "Value")
     table.add_row("prompt token", str(prompt_token))
@@ -130,13 +129,14 @@ def main():
     table.add_row("average", str(file_info["average"]))
     table.add_row("available token", str(available_token))
     table.add_row("line per request", str(line_per_request))
-    table.add_row(Text("total request", style="red"), str(total_request))
+    table.add_row(Text("total request", style="red"), Text(str(total_request), style="red"))
     console.print(table)
     print("\n")
 
     pairs = create_pairs_from_file(file, prompt, line_per_request)
 
     typer.confirm("Do you want to run?", abort=True)
+    print("\n")
 
     ask_openai_parallel(model_name, pairs, "result_" + file)
 
